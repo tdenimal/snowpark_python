@@ -1,0 +1,39 @@
+version: '3.7'
+#Need docker-compose 1.28+ 
+#sudo curl -L "https://github.com/docker/compose/releases/download/1.28.6/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+#sudo chmod +x /usr/local/bin/docker-compose
+
+# How to use :
+# > docker-compose build  ml_lgbm
+
+# > docker-compose run -p 8888:8888  ml_lgbm
+
+services:
+  ml_lgbm:
+    image: ml_lgbm
+    build:
+      context: .
+      dockerfile: ./src/Dockerfile-lgbm-dev
+    volumes:
+      - ./src:/app
+      - ~/.config:/root/.config
+    ports :
+      - 8888:8888
+    command: jupyter lab --allow-root --ip 0.0.0.0
+
+  ml_gluonts:
+    image: ml_gluonts
+    build:
+      context: .
+      dockerfile: ./src/Dockerfile-gluonts-dev
+    volumes:
+      - ./src:/app
+      - ~/.config:/root/.config
+    ports :
+      - 8888:8888
+    command: jupyter lab --allow-root --ip 0.0.0.0
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - capabilities: [gpu]

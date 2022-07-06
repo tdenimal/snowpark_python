@@ -1,0 +1,68 @@
+FROM nvidia/cuda:11.3.1-base-ubuntu18.04 as base
+
+WORKDIR /app
+ENV APP_WORKDIR /app
+
+
+#add apt-key
+#https://developer.nvidia.com/blog/updating-the-cuda-linux-gpg-repository-key/
+RUN apt-key adv --fetch-keys https://developer.download.nvidia.com/compute/cuda/repos/ubuntu1804/x86_64/3bf863cc.pub
+
+#Install packages
+RUN apt-get update && apt-get install -y curl wget unzip
+
+# Link the libcuda stub to the location  and reconfigure dynamic linker run-time bindings
+# RUN ln -s /usr/local/cuda/lib64/stubs/libcuda.so /usr/local/cuda/lib64/stubs/libcuda.so.1 \
+#     && echo "/usr/local/cuda/lib64/stubs" > /etc/ld.so.conf.d/z-cuda-stubs.conf \
+#     && ldconfig
+
+# Install Python 3.8 as default one
+RUN echo 'deb https://ppa.launchpadcontent.net/deadsnakes/ppa/ubuntu bionic main' >> /etc/apt/sources.list
+RUN echo 'deb-src https://ppa.launchpadcontent.net/deadsnakes/ppa/ubuntu bionic main' >> /etc/apt/sources.list
+## Disable wrning about apt-key & stdout
+ENV APT_KEY_DONT_WARN_ON_DANGEROUS_USAGE=1
+RUN apt-key adv --keyserver keyserver.ubuntu.com --recv-keys  F23C5A6CF475977595C89F51BA6932366A755776
+RUN apt-get update
+
+
+RUN apt-get install -y --no-install-recommends \
+        cuda-command-line-tools-11-3 \
+        python3.8 \
+        python3.8-dev \
+        python3.8-distutils
+
+#Install pip linked to python 3.8
+RUN cd /tmp && wget https://bootstrap.pypa.io/get-pip.py && python3.8 get-pip.py
+RUN ln -s /usr/bin/python3.8 /usr/bin/python
+
+# Installing google-cloud-sdk
+RUN curl -sSL https://sdk.cloud.google.com | bash
+ENV PATH $PATH:/root/google-cloud-sdk/bin
+
+#Install pip packages
+RUN pip install wheel cython
+
+#Install cuda related libraries
+ARG nvidia_url=https://developer.download.nvidia.com/compute/cuda/repos/ubuntu1804/x86_64
+RUN sh -x \
+    #
+    # dl libs & install
+    #
+    && for lib in libcudnn8_8.1.0.77-1+cuda11.2_amd64.deb  \
+                cuda-nvrtc-11-3_11.3.109-1_amd64.deb  \
+                libcublas-11-3_11.5.1.109-1_amd64.deb \
+                libcurand-11-3_10.2.4.109-1_amd64.deb \
+                libcusolver-11-3_11.1.2.109-1_amd64.deb \
+                libnccl2_2.9.9-1+cuda11.3_amd64.deb \
+                libcufft-11-3_10.4.2.109-1_amd64.deb; \
+       do \
+              cd /tmp && wget ${nvidia_url}/$lib && dpkg -i $lib; \
+       done
+ENV LD_LIBRARY_PATH $LD_LIBRARY_PATH:/usr/local/cuda-11.3/targets/x86_64-linux/lib:/usr/lib/x86_64-linux-gnu
+RUN ln -s /usr/local/lib/python3.8/dist-packages/ /usr/lib/python3.8/site-packages
+
+
+#Install python dependencies
+COPY ./src/requirements* /app/
+RUN pip install -r /app/requirements.dev.txt
+RUN pip install -r /app/requirements_gluonts.txt

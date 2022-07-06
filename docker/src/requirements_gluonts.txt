@@ -1,0 +1,3 @@
+# sorted in alphabetical order
+numpy==1.19.5
+pandas==1.3.1
